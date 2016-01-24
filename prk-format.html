@@ -13,6 +13,9 @@
       td {
           background-color: #dddddd;
       }
+      .padding {
+          background-color: #dddddd;
+      }
       .null {
           background-color: #ffffff;
       }
@@ -53,7 +56,7 @@ A PRK file consists of an X,Y position and X,Y length. These values may range fr
     </p>
 
     <p>
-This document uses a soft red colour to indicate unsigned values, a soft blue colour to indicate sections, a soft cyan colour to indicate <a href="https://en.wikipedia.org/wiki/Two%27s_complement">two's complement</a> values, a soft green colour to indicate zero-padded fixed-width ASCII strings, a soft yellow colour to indicate <a href="https://en.wikipedia.org/wiki/IEEE_floating_point">IEEE-754</a> values, gray to indicate padding or an unknown format, and a solid red colour to indicate undocumented sections. All arithmetic values are stored in the little-endian byte order, and bits are indexed in this document from their low-order bits to high-order bits. Unless otherwise specified, sections are padded with zeroes to their designated sizes. Ranges, of the form "bytes N to M" is intended to be read as "from and including byte N, up to but excluding byte M", whereas the form [N,M] is entirely inclusive.
+This document uses a <span class="unsigned">soft red colour</span> to indicate unsigned values, a <span class="record">soft blue colour</span> to indicate sections, a <span class="signed">soft cyan colour</span> to indicate <a href="https://en.wikipedia.org/wiki/Two%27s_complement">two's complement</a> values, a <span class="string">soft green colour</span> to indicate zero-padded fixed-width ASCII strings, a <span class="float">soft yellow colour</span> to indicate <a href="https://en.wikipedia.org/wiki/IEEE_floating_point">IEEE-754</a> values, <span class="padding">gray</span> to indicate padding or an unknown format, and a <span class="undocumented">solid red colour</span> to indicate undocumented sections. All arithmetic values are stored in the little-endian byte order, and bits are indexed in this document from their low-order bits to high-order bits. Unless otherwise specified, sections are padded with zeroes to their designated sizes. Ranges, of the form "bytes N to M" is intended to be read as "from and including byte N, up to but excluding byte M", whereas the form [N,M] is entirely inclusive.
     </p>
 
     <p>
