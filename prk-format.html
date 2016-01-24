@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style type="text/css">
+      table {
+          text-align: center;
+          padding-bottom: 1em;
+      }
+      th {
+          min-width: 2em;
+          background-color: #dddddd;
+      }
+      td {
+          background-color: #dddddd;
+      }
+      .null {
+          background-color: #ffffff;
+      }
+      .undocumented {
+          background-color: #ff0000;
+      }
+      .unsigned {
+          background-color: #ffdddd;
+      }
+      .signed {
+          background-color: #ddffff;
+      }
+      .string {
+          background-color: #ddffdd;
+      }
+      .float {
+          background-color: #ffffdd;
+      }
+      .record {
+          background-color: #ddddff;
+      }
+    </style>
+    <title>PRK File Format</title>
+  </head>
+  <body>
+    <p>
+PRK files use CRC-32 checksums extensively. An example of the algorithm can be found <a href="http://www.libpng.org/pub/png/spec/1.2/PNG-CRCAppendix.html">here</a>.
+The process is much the same, except the checksums are not inverted in PRK files. The following function should be used instead of the crc function in that link.
+    </p>
+    <pre>
+    unsigned long prk_crc(unsigned char *buf, int len)
+    {
+        return update_crc(0xffffffffLU, buf, len);
+    }</pre>
+
+    <p>
+A PRK file consists of an X,Y position and X,Y length. These values may range from 0 up to and including 58. The largest park has X and Y positions of 0, and X and Y lengths of 58. For vertical position (referred to as a Z position in this document), the value 0 is used to indicate the default ground level, +15 is used to indicate the maximum position an object may be raised to, and -15 is used to indicate the minimum position an object may be lowered to. It has been my effort to make all positional values consistent with the values listed above.
+    </p>
+
+    <p>
+This document uses a soft red colour to indicate unsigned values, a soft blue colour to indicate sections, a soft cyan colour to indicate <a href="https://en.wikipedia.org/wiki/Two%27s_complement">two's complement</a> values, a soft green colour to indicate zero-padded fixed-width ASCII strings, a soft yellow colour to indicate <a href="https://en.wikipedia.org/wiki/IEEE_floating_point">IEEE-754</a> values, gray to indicate padding or an unknown format, and a solid red colour to indicate undocumented sections. All arithmetic values are stored in the little-endian byte order, and bits are indexed in this document from their low-order bits to high-order bits. Unless otherwise specified, sections are padded with zeroes to their designated sizes. Ranges, of the form "bytes N to M" is intended to be read as "from and including byte N, up to but excluding byte M", whereas the form [N,M] is entirely inclusive.
+    </p>
+
+    <p>
+An earlier analysis of the PRK file format is available <a href="http://thmods.com/forum/viewtopic.php?f=13&t=12">here</a>. It is my hope that the updates presented in this analysis help clear up a few of the unknowns in that forum post.
+    </p>
+
+    <table id="save-file">
+      <tr>
+        <th class="record" colspan="17"><a href="#save-file">Save File Layout</a></th>
+      </tr>
+      <tr>
+        <td colspan="17">Pre-made parks don't use this container. For those files, see <a href="#park">Park Layout</a>.</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Offset</th> <th colspan="8">0</th> <th colspan="8">1</th>
+      </tr>
+      <tr>
+        <th>0</th> <th>1</th> <th>2</th> <th>3</th> <th>4</th> <th>5</th>
+        <th>6</th> <th>7</th>
+        <th>8</th> <th>9</th> <th>10</th> <th>11</th> <th>12</th> <th>13</th>
+        <th>14</th> <th>15</th>
+      </tr>
+      <tr>
+        <th>0</th>
+        <td class="unsigned" colspan="16" rowspan="2">Checksum of bytes 0 to Padding offset (with this field zero-filled)</td>
+      </tr>
+      <tr>
+        <th>2</th>
+      </tr>
+      <tr>
+        <th>4</th>
+        <td class="unsigned" colspan="16" rowspan="2">Checksum of Values</td>
+      </tr>
+      <tr>
+        <th>6</th>
+      </tr>
+      <tr>
+        <th>8</th>
+        <td class="unsigned" colspan="16" rowspan="2">Size of Values</td>
+      </tr>
+      <tr>
+        <th>10</th>
+      </tr>
+      <tr>
+        <th>12</th>
+        <td class="unsigned" colspan="16" rowspan="2">Padding offset</td>
+      </tr>
+      <tr>
+        <th>14</th>
+      </tr>
+      <tr>
+        <th>16</th>
+        <td colspan="8">6</td>
+        <td colspan="8"></td>
+      </tr>
+      <tr>
+        <th>18</th>
+        <td colspan="8"></td>
+        <td colspan="8"></td>
+      </tr>
+      <tr>
+        <th>20</th>
+        <td class="record" colspan="16" rowspan="2"><a href="#save-file-values">Values</a></td>
+      </tr>
+      <tr><th>...</th></tr>
+      <tr>
+        <th>+0</th>
+        <td class="record" rowspan="2" colspan="16"><a href="#park">Park</a></td>
+      </tr>
+      <tr><th>...</th></tr>
+      <tr>
+        <th>+0</th>
+        <td colspan="8">Padding (value=0x69)</td>
+        <td colspan="8">...</td>
+      </tr>
+      <tr>
+        <th>...</th>
+        <td colspan="8">...</td>
+        <td colspan="8">...</td>
+      </tr>
+      <tr>
+        <th>35840</th>
+      </tr>
+      <tr id="save-file-values">
+        <th colspan="17" class="record"><a href="#save-file-values">Save File Values</a></th>
+      </tr>
+      <tr>
+        <th>Type</th>
+        <th colspan="16">Description</th>
+      </tr>
+      <tr>
+        <td>18</td>
+        <td class="unsigned" colspan="16">Value is 0 with a size of 0 bytes.</td>
+      </tr>
+      <tr>
+        <td>16</td>
+        <td class="unsigned" colspan="16">Value in range [1,255] with a size of 1 byte.</td>
+      </tr>
+      <tr>
+        <td>17</td>
+        <td class="unsigned" colspan="16">Value in range [256,] with a size of 2 bytes.</td>
+      </tr>
+      <tr>
+        <td>13</td>
+        <td class="unsigned" colspan="16">Value is checksum with a size of 4 bytes.</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td class="string" colspan="16">Value is a null-terminated string of arbitrary length.</td>
+      </tr>
+      <tr>
+        <th colspan="17">Layout</th>
+      </tr>
+      <tr>
+        <th>Type</th>
+        <th colspan="8">Identifier</th>
+        <th colspan="8">Value</th>
+      </tr>
+
+      <tr>
+        <td>16-18</td>
+        <td colspan="8" class="unsigned">num_edited_goals (0xe1ec606f)</td>
+        <td colspan="8" class="unsigned">Goal Count</td>
+      </tr>
+      <tr>
+        <td>16-18</td>
+        <td colspan="8" class="unsigned">maxplayers (0xb7e39b53)</td>
+        <td colspan="8" class="unsigned">Maximum Players</td>
+      </tr>
+      <tr>
+        <td>16-18</td>
+        <td colspan="8" class="unsigned">num_gaps (0xe6121ed0)</td>
+        <td colspan="8" class="unsigned">Gap Count</td>
+      </tr>
+      <tr>
+        <td>16-18</td>
+        <td colspan="8" class="unsigned">num_pieces (0xfff3dc35)</td>
+        <td colspan="8" class="unsigned">Object Count</td>
+      </tr>
+      <tr>
+        <td>16-18</td>
+        <td colspan="8" class="unsigned">theme (0x688a18f7)</td>
+        <td colspan="8" class="unsigned">Theme</td>
+      </tr>
+      <tr>
+        <td>13</td>
+        <td colspan="8" class="unsigned">tod_script (0x4c72ed98)</td>
+        <td colspan="8" class="unsigned">default (0x1ca1ff20)</td>
+      </tr>
+      <tr>
+        <td class="null"></td>
+        <td colspan="2">0x90</td>
+        <td colspan="2">0xef</td>
+        <td colspan="4" class="null"></td>
+        <td colspan="2" class="unsigned">X Length</td>
+      </tr>
+      <tr>
+        <td>16-18</td>
+        <td colspan="8" class="unsigned">length (0xfe82614d)</td>
+        <td colspan="8" class="unsigned">Y Length</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td colspan="8" class="unsigned">filename (0xc3f4169a)</td>
+        <td colspan="8" class="string">Park Name</td>
+      </tr>
+      <tr>
+        <td class="null"></td>
+        <td colspan="2">0</td>
+      </tr>
+    </table>
+
+    <table id="park">
+      <tr>
+        <th class="record" colspan="17"><a href="#park">Park Layout</a></th>
+      </tr>
+      <tr>
+        <th rowspan="2">Offset</th> <th colspan="8">0</th> <th colspan="8">1</th>
+      </tr>
+      <tr>
+        <th>0</th> <th>1</th> <th>2</th> <th>3</th> <th>4</th> <th>5</th>
+        <th>6</th> <th>7</th>
+        <th>8</th> <th>9</th> <th>10</th> <th>11</th> <th>12</th> <th>13</th>
+        <th>14</th> <th>15</th>
+      </tr>
+      <tr>
+        <th>0</th>
+        <td colspan="8">0xc</td>
+      </tr>
+      <tr>
+        <th>1</th>
+        <td class="unsigned" rowspan="2" colspan="16" >Checksum of "park_editor_map" (0x337c5289)</td>
+      </tr>
+      <tr>
+        <th>3</th>
+      </tr>
+      <tr>
+        <th>5</th>
+        <td colspan="8">0x1</td>
+        <td colspan="8">0xa6</td>
+      </tr>
+      <tr>
+        <th>7</th>
+        <td colspan="8">0xe</td>
+      </tr>
+      <tr>
+        <th>8</th>
+        <td class="record" colspan="16" rowspan="2"><a href="#map">Map</a></td>
+      </tr>
+      <tr>
+        <th>...</th>
+      </tr>
+      <tr>
+        <th>15008</th>
+        <td colspan="8">0xa</td>
+      </tr>
+      <tr>
+        <th>15009</th>
+        <td colspan="16" rowspan="2" class="unsigned">Checksum of "park_editor_goals" (0xd8eb825e)</td>
+      </tr>
+      <tr>
+        <th>15011</th>
+      </tr>
+      <tr>
+        <th>15013</th>
+        <td colspan="8">0xc</td>
+      </tr>
+      <tr>
+        <th>15014</th>
+        <td colspan="16" class="unsigned" rowspan="2">Checksum of "goals" (0x38dbe1d0)</td>
+      <tr> <th>15016</th> </tr>
+      <tr>
+        <th>15018</th>
+        <td colspan="16" rowspan="2" class="undocumented">Goal Data</td>
+      </tr>
+      <tr>
+        <th>...</th>
+      </tr>
+      <tr>
+        <th>+0</th>
+        <td colspan="8">0xc</td>
+      </tr>
+      <tr>
+        <th>+1</th>
+        <td colspan="16" rowspan="2" class="unsigned">Checksum of "createdrails" (0x244550a6)</td>
+      </tr>
+      <tr>
+        <th>+3</th>
+        <td colspan="8" class="unsigned"></td>
+        <td colspan="8" class="record"></td>
+      </tr>
+      <tr>
+        <th>+5</th>
+        <td colspan="16" rowspan="2" class="record"><a href="#rails">Rails</a></td>
+      </tr>
+      <tr>
+        <th>...</th>
+      </tr>
+      <tr>
+        <th>+0</th>
+        <td colspan="8">0x10</td>
+      </tr>
+      <tr>
+        <th>+1</th>
+        <td colspan="16" rowspan="2" class="unsigned">Checksum of "maxplayers" (0xb7e39b53)</td>
+      </tr>
+      <tr>
+        <th>+3</th>
+      </tr>
+      <tr>
+        <th>+5</th>
+        <td colspan="16" class="unsigned">Maximum Players</td>
+      </tr>
+    </table>
+    <table id="map">
+      <tr>
+        <th class="record" colspan="17"><a href="#map">Map Layout</a></th>
+      </tr>
+      <tr>
+        <th rowspan="2">Offset</th> <th colspan="8">0</th> <th colspan="8">1</th>
+      </tr>
+      <tr>
+        <th>0</th> <th>1</th> <th>2</th> <th>3</th> <th>4</th> <th>5</th>
+        <th>6</th> <th>7</th>
+        <th>8</th> <th>9</th> <th>10</th> <th>11</th> <th>12</th> <th>13</th>
+        <th>14</th> <th>15</th>
+      </tr>
+      <tr>
+        <th>0</th>
+        <td class="unsigned" colspan="16" rowspan="2">
+          Checksum of bytes 4 to 15000
+        </td>
+      </tr>
+      <tr>
+        <th>2</th>
+      </tr>
+      <tr>
+        <th>4</th>
+        <td class="unsigned" colspan="16">
+          Section Size (92 + 58*58 + ObjectCount*8 + GapCount*48)
+        </td>
+      </tr>
+      <tr>
+        <th>6</th>
+        <td colspan="8">0x24</td>
+        <td colspan="8">0x4e</td>
+      </tr>
+      <tr>
+        <th>8</th>
+        <td class="unsigned" colspan="16">Theme</td>
+      </tr>
+      <tr>
+        <th>10</th>
+        <td colspan="8"></td>
+        <td colspan="8"></td>
+      </tr>
+      <tr>
+        <th>12</th>
+        <td class="unsigned" colspan="8">X Position</td>
+        <td class="unsigned" colspan="8">Y Position</td>
+      </tr>
+      <tr>
+        <th>14</th>
+        <td class="unsigned" colspan="8">X Length</td>
+        <td class="unsigned" colspan="8">Y Length</td>
+      </tr>
+      <tr>
+        <th>16</th>
+        <td class="unsigned" colspan="16">Object Count</td>
+      </tr>
+      <tr>
+        <th>18</th>
+        <td class="unsigned" colspan="16">Gap Count</td>
+      </tr>
+      <tr>
+        <th>20</th>
+        <td class="unsigned" colspan="16">Maximum Players</td>
+      </tr>
+      <tr>
+        <th>22</th>
+        <td colspan="8"></td>
+        <td colspan="8"></td>
+      </tr>
+      <tr>
+        <th>24</th>
+        <td colspan="8"></td>
+        <td colspan="8"></td>
+      </tr>
+      <tr>
+        <th>26</th>
+        <td colspan="8"></td>
+        <td colspan="8"></td>
+      </tr>
+      <tr>
+        <th>28</th>
+        <td class="string" rowspan="2" colspan="16">Park Name</td>
+      </tr>
+      <tr>
+        <th>...</th>
+      </tr>
+      <tr>
+        <th>92</th>
+        <td class="signed" colspan="8">Ground Height (x=0,y=0)</td>
+        <td class="signed" colspan="8">Ground Height (x=0,y=1)</td>
+      </tr>
+      <tr>
+        <th>...</th>
+        <td class="signed" colspan="8">...</td>
+        <td class="signed" colspan="8">...</td>
+      </tr>
+      <tr>
+        <th>3456</th>
+        <td class="record" rowspan="2" colspan="16"><a href="#object">Objects</a> and <a href="#gap">Gaps</a></td>
+      </tr>
+      <tr>
+        <th>...</th>
+      </tr>
+      <tr>
+        <th>15000</th>
+      </tr>
+      <tr id="object">
+        <th class="record" colspan="17"><a href="#object">Object Layout</a></th>
+      </tr>
+      <tr>
+        <th rowspan="2">Offset</th> <th colspan="8">0</th> <th colspan="8">1</th>
+      </tr>
+      <tr>
+        <th>0</th> <th>1</th> <th>2</th> <th>3</th> <th>4</th> <th>5</th>
+        <th>6</th> <th>7</th>
+        <th>8</th> <th>9</th> <th>10</th> <th>11</th> <th>12</th> <th>13</th>
+        <th>14</th> <th>15</th>
+      </tr>
+      <tr>
+        <th>0</th>
+        <td class="unsigned" colspan="10">Identifier</td>
+        <td class="unsigned" colspan="6">X Position</td>
+      </tr>
+      <tr>
+        <th>2</th>
+        <td colspan="2"></td>
+        <td class="unsigned" colspan="6">Y Position</td>
+        <td colspan="8"></td>
+      </tr>
+      <tr>
+        <th>4</th>
+        <td class="unsigned" colspan="2">Rotation</td>
+        <td class="unsigned" colspan="6">Vertical Position+16</td>
+        <td colspan="8"></td>
+      </tr>
+      <tr>
+        <th>6</th>
+        <td colspan="8"></td>
+        <td colspan="8"></td>
+      </tr>
+      <tr id="gap">
+        <th class="record" colspan="17"><a href="#gap">Gap Layout</a></th>
+      </tr>
+      <tr>
+        <th rowspan="2">Offset</th> <th colspan="8">0</th> <th colspan="8">1</th>
+      </tr>
+      <tr>
+        <th>0</th> <th>1</th> <th>2</th> <th>3</th> <th>4</th> <th>5</th>
+        <th>6</th> <th>7</th>
+        <th>8</th> <th>9</th> <th>10</th> <th>11</th> <th>12</th> <th>13</th>
+        <th>14</th> <th>15</th>
+      </tr>
+      <tr>
+        <th>0</th>
+        <td class="unsigned" colspan="8">Side1: X Position</td>
+        <td class="unsigned" colspan="8">Side2: X Position</td>
+      </tr>
+      <tr>
+        <th>2</th>
+        <td class="unsigned" colspan="8">Side 1: Vertical Position+16</td>
+        <td class="unsigned" colspan="8">Side 2: Vertical Position+16</td>
+      </tr>
+      <tr>
+        <th>4</th>
+        <td class="unsigned" colspan="8">Side 1: Y Position</td>
+        <td class="unsigned" colspan="8">Side 2: Y Position</td>
+      </tr>
+      <tr>
+        <th>6</th>
+        <td class="unsigned" colspan="8">Side 1: Length</td>
+        <td class="unsigned" colspan="8">Side 2: Length</td>
+      </tr>
+      <tr>
+        <th>8</th>
+        <td class="unsigned" colspan="4">Side 1: Rotation</td>
+        <td class="unsigned" colspan="4">Side 2: Rotation</td>
+        <td colspan="8"></td>
+      </tr>
+      <tr>
+        <th>10</th>
+        <td class="string" rowspan="2" colspan="16">Gap Name</td>
+      </tr>
+      <tr>
+        <th>...</th>
+      </tr>
+      <tr>
+        <th>42</th>
+        <td class="unsigned" colspan="16">Score</td>
+      </tr>
+      <tr>
+        <th>44</th>
+        <td colspan="16" rowspan="2">Type<td>
+      </tr>
+      <tr>
+        <th>46</th>
+      </tr>
+    </table>
+
+    <table id="rails">
+      <tr>
+        <th class="record" colspan="17"><a href="#rails">Rail Layout</a></th>
+      </tr>
+      <tr>
+        <td colspan="17">If no rails are present, this section is two bytes: 0x00, 0x00</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Offset</th> <th colspan="8">0</th> <th colspan="8">1</th>
+      </tr>
+      <tr>
+        <th>0</th> <th>1</th> <th>2</th> <th>3</th> <th>4</th> <th>5</th>
+        <th>6</th> <th>7</th>
+        <th>8</th> <th>9</th> <th>10</th> <th>11</th> <th>12</th> <th>13</th>
+        <th>14</th> <th>15</th>
+      </tr>
+      <tr>
+        <th>0</th>
+        <td colspan="8">0xa</td>
+      </tr>
+      <tr>
+        <th>1</th>
+        <td colspan="16" class="unsigned">Rail Element Count</td>
+      </tr>
+      <tr>
+        <th>3</th>
+        <td colspan="16" rowspan="2" class="record"><a href="#rail-element">Rail Elements</a></td>
+      </tr>
+      <tr>
+        <th>...</th>
+      </tr>
+      <tr id="rail-element">
+        <th class="record" colspan="17"><a href="#rail-element">Rail Element Layout</a></th>
+      </tr>
+      <tr>
+        <th rowspan="2">Offset</th> <th colspan="8">0</th> <th colspan="8">1</th>
+      </tr>
+      <tr>
+        <th>0</th> <th>1</th> <th>2</th> <th>3</th> <th>4</th> <th>5</th>
+        <th>6</th> <th>7</th>
+        <th>8</th> <th>9</th> <th>10</th> <th>11</th> <th>12</th> <th>13</th>
+        <th>14</th> <th>15</th>
+      </tr>
+      <tr>
+        <th>0</th>
+        <td colspan="8">0xc</td>
+      </tr>
+      <tr>
+        <th>1</th>
+        <td class="unsigned" colspan="16" rowspan="2">Checksum of "points" (0xd84571d6)</td>
+      </tr>
+      <tr>
+        <th>3</th>
+      </tr>
+      <tr>
+        <th>5</th>
+        <td colspan="8">0xa</td>
+      </tr>
+      <tr>
+        <th>6</th>
+        <td class="unsigned" colspan="16">Point Count</td>
+      </tr>
+      <tr>
+        <th>8</th>
+        <td class="record" colspan="16" rowspan="2"><a href="#point">Points</a></td>
+      </tr>
+      <tr>
+        <th>...</th>
+      </tr>
+      <tr>
+        <th>+0</th>
+        <td colspan="8"></td>
+      </tr>
+      <tr id="point">
+        <th class="record" colspan="17"><a href="#point">Point Layout</a></th>
+      </tr>
+      <tr>
+        <td colspan="17">If the point is without a visible post, bytes 17 to 26 aren't present.</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Offset</th> <th colspan="8">0</th> <th colspan="8">1</th>
+      </tr>
+      <tr>
+        <th>0</th> <th>1</th> <th>2</th> <th>3</th> <th>4</th> <th>5</th>
+        <th>6</th> <th>7</th>
+        <th>8</th> <th>9</th> <th>10</th> <th>11</th> <th>12</th> <th>13</th>
+        <th>14</th> <th>15</th>
+      </tr>
+      <tr>
+        <th>0</th>
+        <td colspan="8">6</td>
+      </tr>
+      <tr>
+        <th>1</th>
+        <td class="unsigned" colspan="16" rowspan="2">Checksum of "pos" (0x7f261953)</td>
+      </tr>
+      <tr>
+        <th>3</th>
+      </tr>
+      <tr>
+        <th>5</th>
+        <td class="float" colspan="16" rowspan="2">X Position*120 - 3480</td>
+      </tr>
+      <tr>
+        <th>7</th>
+      </tr>
+      <tr>
+        <th>9</th>
+        <td class="float" colspan="16" rowspan="2">Z Position*48</td>
+      </tr>
+      <tr>
+        <th>11</th>
+      </tr>
+      <tr>
+        <th>13</th>
+        <td class="float" colspan="16" rowspan="2">Y Position*120 - 3480</td>
+      </tr>
+      <tr>
+        <th>15</th>
+      </tr>
+      <tr>
+        <th>17</th>
+        <td colspan="8">0xd</td>
+      </tr>
+      <tr>
+        <th>18</th>
+        <td colspan="8"></td>
+        <td colspan="8"></td>
+      </tr>
+      <tr>
+        <th>20</th>
+        <td colspan="8"></td>
+        <td colspan="8"></td>
+      </tr>
+      <tr>
+        <th>22</th>
+        <td class="unsigned" colspan="16" rowspan="2">Checksum of "haspost" (0xdcded772)</td>
+      </tr>
+      <tr>
+        <th>24</th>
+      </tr>
+      <tr>
+        <th>26</th>
+        <td colspan="8"></td>
+      </tr>
+    </table>
+  </body>
+</html>
